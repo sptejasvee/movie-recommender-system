@@ -10,18 +10,21 @@ st.set_page_config(page_title="Movie Recommender", layout="wide")
 
 # --- Helper Function: Fetch Posters from TMDB ---
 def fetch_poster(movie_id):
-    api_key = "TMDB_API_KEY"
+    api_key = st.secrets["TMDB_API_KEY"]
     
     url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={api_key}&language=en-US"
+    
     try:
         response = requests.get(url)
         data = response.json()
+        
         if 'poster_path' in data and data['poster_path']:
             return "https://image.tmdb.org/t/p/w500/" + data['poster_path']
-    except:
-        pass
-    # Fallback image if TMDB fails or movie has no poster
-    return "https://via.placeholder.com/500x750?text=No+Poster+Available"
+        else:
+            return "https://via.placeholder.com/500x750?text=No+Poster+Available"
+            
+    except Exception as e:
+        return "https://via.placeholder.com/500x750?text=Connection+Error"
 
 # --- Load Data & Compute Similarity ---
 @st.cache_data
