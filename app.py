@@ -11,7 +11,6 @@ st.set_page_config(page_title="Movie Recommender", layout="wide")
 # --- Helper Function: Fetch Posters from TMDB ---
 def fetch_poster(movie_id):
     api_key = st.secrets["TMDB_API_KEY"]
-    
     url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={api_key}&language=en-US"
     
     try:
@@ -46,16 +45,18 @@ def recommend(movie):
     indices = pd.Series(movies.index, index=movies['title'].str.lower()).drop_duplicates()
     
     if movie_lower not in indices:
-        return [], [], []
+        return [], [], [], []
         
     idx = indices[movie_lower]
     sim_scores = list(enumerate(cosine_sim[idx]))
     sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+    # Grab the top 10 matches
     sim_scores = sim_scores[1:11]
     
     recommended_movies = []
     recommended_posters = []
     recommended_overviews = []
+    recommended_ids = []
     
     for i in sim_scores:
         movie_idx = i[0]
@@ -65,40 +66,56 @@ def recommend(movie):
         recommended_movies.append(movies.iloc[movie_idx].title)
         recommended_overviews.append(movies.iloc[movie_idx].overview)
         recommended_posters.append(fetch_poster(movie_id))
+        recommended_ids.append(movie_id)
         
-    return recommended_movies, recommended_posters, recommended_overviews
+    return recommended_movies, recommended_posters, recommended_overviews, recommended_ids
 
 # --- Build the Website UI ---
 st.title('🍿 Movie Recommender System')
 st.markdown("Discover your next favorite movie based on what you already love.")
 
+# Using index=None makes it behave like a true search bar instead of a dropdown
 selected_movie = st.selectbox(
-    'Search for a movie:',
-    movies['title'].values
+    'Type a movie name to search:',
+    movies['title'].values,
+    index=None,
+    placeholder="Search for a movie..."
 )
 
 if st.button('Show Recommendations'):
-    with st.spinner("Finding the best matches..."):
-        names, posters, overviews = recommend(selected_movie)
-        
-        if not names:
-            st.error("Whoops! We couldn't find that movie in our database.")
-        else:
-            st.success("Here are your top 5 recommendations:")
+    if selected_movie:
+        with st.spinner("Finding the best matches..."):
+            names, posters, overviews, ids = recommend(selected_movie)
             
-            # Create a 5-column layout for a modern, Netflix-style look
-            cols = st.columns(5)
-            
-            for i in range(5):
-                with cols[i]:
-                    # Show Poster
-                    st.image(posters[i], use_container_width=True)
+            if not names:
+                st.error("Whoops! We couldn't find that movie in our database.")
+            else:
+                st.success("Here are your top 10 recommendations:")
+                
+                # Create a 2x5 grid (2 rows, 5 columns) for better UI scaling
+                for row in range(0, 10, 5):
+                    cols = st.columns(5)
                     
-                    # Show Title
-                    st.subheader(names[i])
-                    
-                    # Show Overview (Truncated so the UI stays neat)
-                    overview_text = overviews[i]
-                    if len(overview_text) > 120:
-                        overview_text = overview_text[:120] + "..."
-                    st.caption(overview_text)
+                    for col_idx in range(5):
+                        # Calculate the actual index in our recommendation lists (0 through 9)
+                        item_idx = row + col_idx 
+                        
+                        with cols[col_idx]:
+                            tmdb_link = f"https://www.themoviedb.org/movie/{ids[item_idx]}"
+                            
+                            # Make the poster a clickable link using Markdown
+                            st.markdown(
+                                f"[![Poster]({posters[item_idx]})]({tmdb_link})", 
+                                unsafe_allow_html=True
+                            )
+                            
+                            # Make the title a clickable link
+                            st.markdown(f"**[{names[item_idx]}]({tmdb_link})**")
+                            
+                            # Truncate and show overview
+                            overview_text = overviews[item_idx]
+                            if len(overview_text) > 100:
+                                overview_text = overview_text[:100] + "..."
+                            st.caption(overview_text)
+    else:
+        st.warning("Please type or select a movie first!")
