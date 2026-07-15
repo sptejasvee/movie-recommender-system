@@ -48,7 +48,7 @@ def recommend(movie):
     idx = indices[movie_lower]
     sim_scores = list(enumerate(cosine_sim[idx]))
     sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-    sim_scores = sim_scores[1:6] # Grab the top 5
+    sim_scores = sim_scores[1:11]
     
     recommended_movies = []
     recommended_posters = []
